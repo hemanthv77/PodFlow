@@ -1,7 +1,5 @@
 """Integration tests."""
 
-import pytest
-from podflow.database.session import init_db
 from podflow.services.pipeline_service import PipelineService
 
 URL = "https://talkpython.fm/episodes/rss"

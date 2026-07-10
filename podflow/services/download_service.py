@@ -11,15 +11,14 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from podflow.config.settings import settings
 from podflow.database.repository import EpisodeRepository
 from podflow.database.session import SessionLocal
+from podflow.domain.episode import Episode as DomainEpisode
 from podflow.domain.processing_state import ProcessingState
 from podflow.downloader.audio import AudioDownloader
 from podflow.downloader.filesystem import FileManager
-from podflow.domain.episode import Episode as DomainEpisode
 from podflow.logging.events import emit
 from podflow.logging.logger import get_logger
 
@@ -227,6 +226,7 @@ class DownloadService:
             logger.info("Audio already on disk: %s — skipping.", dest.name)
             # Read integrity data from existing file
             import hashlib
+
             file_hash = hashlib.sha256(dest.read_bytes()).hexdigest()
             file_size = dest.stat().st_size
             # Transition through intermediate states to maintain state-machine

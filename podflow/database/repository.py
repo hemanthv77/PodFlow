@@ -5,14 +5,14 @@ Provides a clean abstraction over SQLAlchemy queries so that business logic
 does not need to interact with the ORM directly.
 """
 
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Sequence
 
 from sqlalchemy.orm import Session
 
 from podflow.database.models import Episode, Podcast
-from podflow.domain.processing_state import ProcessingState
 from podflow.domain.podcast import SourceType
+from podflow.domain.processing_state import ProcessingState
 from podflow.logging.logger import get_logger
 
 logger = get_logger(__name__)
@@ -43,9 +43,7 @@ class PodcastRepository:
         Returns:
             The existing or newly-created :class:`Podcast`.
         """
-        podcast = (
-            self._session.query(Podcast).filter_by(rss_url=rss_url).one_or_none()
-        )
+        podcast = self._session.query(Podcast).filter_by(rss_url=rss_url).one_or_none()
         if podcast is None:
             podcast = Podcast(
                 rss_url=rss_url,

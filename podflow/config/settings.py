@@ -21,8 +21,20 @@ class Settings(BaseSettings):
     # ---- Application ----
     app_name: str = "PodFlow"
 
-    # ---- Paths ----
+    # ---- Database ----
+    db_backend: str = "sqlite"
+    """``"sqlite"`` (dev) or ``"postgresql"`` (prod)."""
+
     database_path: str = "data/podflow.db"
+    """SQLite file path — ignored when db_backend=postgresql."""
+
+    db_host: str = "localhost"
+    db_port: int = 5432
+    db_name: str = "podflow"
+    db_user: str = "podflow"
+    db_password: str = "podflow"
+
+    # ---- Paths ----
     download_dir: str = "downloads"
 
     # ---- RSS ----
@@ -44,7 +56,12 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
-        """Build the SQLAlchemy connection URL for SQLite."""
+        """Build the SQLAlchemy connection URL based on db_backend."""
+        if self.db_backend == "postgresql":
+            return (
+                f"postgresql://{self.db_user}:{self.db_password}"
+                f"@{self.db_host}:{self.db_port}/{self.db_name}"
+            )
         db_path = Path(self.database_path)
         db_path.parent.mkdir(parents=True, exist_ok=True)
         return f"sqlite:///{db_path.resolve()}"

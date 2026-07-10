@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 
-class SourceType(str, Enum):
+class SourceType(StrEnum):
     """Identifies which platform a podcast feed originates from.
 
     Used to differentiate ingestion logic — RSS feeds are parsed with

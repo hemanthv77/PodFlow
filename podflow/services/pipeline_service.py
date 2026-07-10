@@ -18,10 +18,10 @@ from __future__ import annotations
 import time
 
 from podflow.domain.pipeline import PipelineReport
-from podflow.services.download_service import DownloadService
-from podflow.services.podcast_service import PodcastService
 from podflow.logging.events import emit
 from podflow.logging.logger import get_logger
+from podflow.services.download_service import DownloadService
+from podflow.services.podcast_service import PodcastService
 
 logger = get_logger(__name__)
 
@@ -84,9 +84,7 @@ class PipelineService:
 
         if not ingest_result.success:
             errors.extend(ingest_result.errors)
-            logger.warning(
-                "Ingestion returned errors: %s", ingest_result.errors
-            )
+            logger.warning("Ingestion returned errors: %s", ingest_result.errors)
 
         emit(
             "ingest.completed",

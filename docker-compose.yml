@@ -1,0 +1,78 @@
+# PodFlow — local development & production simulation
+#
+# Services:
+#   podflow    — the application (CLI / pipeline runner)
+#   postgres   — PostgreSQL for production-like environments
+#   airflow    — Airflow scheduler + webserver
+#
+# Usage:
+#   docker compose up -d              # start all services
+#   docker compose run podflow pipeline <url>  # run pipeline manually
+#   docker compose down               # stop everything
+
+version: "3.9"
+
+services:
+  # ---- PodFlow Application ----
+  podflow:
+    build: .
+    image: podflow:latest
+    container_name: podflow-app
+    environment:
+      - DB_BACKEND=postgresql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=podflow
+      - DB_USER=podflow
+      - DB_PASSWORD=podflow
+      - DOWNLOAD_DIR=/app/downloads
+      - RSS_URL=${RSS_URL:-https://talkpython.fm/episodes/rss}
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./data:/app/data
+      - downloads:/app/downloads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["podflow", "pipeline", "${RSS_URL:-https://talkpython.fm/episodes/rss}", "--limit", "5"]
+
+  # ---- PostgreSQL ----
+  postgres:
+    image: postgres:16-alpine
+    container_name: podflow-postgres
+    environment:
+      POSTGRES_DB: podflow
+      POSTGRES_USER: podflow
+      POSTGRES_PASSWORD: podflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U podflow -d podflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ---- Airflow ----
+  airflow:
+    image: apache/airflow:3.2.2
+    container_name: podflow-airflow
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://podflow:podflow@postgres/podflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./podflow:/opt/airflow/podflow
+      - ./airflow_home/dags:/opt/airflow/dags
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["bash", "-c", "airflow db migrate && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@podflow.local || true && airflow webserver & airflow scheduler"]
+
+volumes:
+  pgdata:
+  downloads:

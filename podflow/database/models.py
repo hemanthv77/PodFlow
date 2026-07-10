@@ -35,9 +35,7 @@ class Podcast(Base):
     id: Mapped[int] = Column(Integer, primary_key=True, autoincrement=True)
 
     # ---- Identity ----
-    source_type: Mapped[str] = Column(
-        String(20), default="RSS", nullable=False, index=True
-    )
+    source_type: Mapped[str] = Column(String(20), default="RSS", nullable=False, index=True)
     """Source platform: RSS, YOUTUBE, SPOTIFY, APPLE_PODCASTS."""
 
     rss_url: Mapped[str] = Column(String(1000), unique=True, nullable=False)
@@ -58,9 +56,7 @@ class Podcast(Base):
     last_checked_at: Mapped[datetime | None] = Column(DateTime, nullable=True)
     """When the feed was most recently polled."""
 
-    created_at: Mapped[datetime] = Column(
-        DateTime, default=datetime.utcnow, nullable=False
-    )
+    created_at: Mapped[datetime] = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     episodes: Mapped[list["Episode"]] = relationship(
         "Episode", back_populates="podcast", cascade="all, delete-orphan"
@@ -74,14 +70,10 @@ class Episode(Base):
     """Represents a single podcast episode."""
 
     __tablename__ = "episodes"
-    __table_args__ = (
-        UniqueConstraint("podcast_id", "guid", name="uq_episode_guid_per_podcast"),
-    )
+    __table_args__ = (UniqueConstraint("podcast_id", "guid", name="uq_episode_guid_per_podcast"),)
 
     id: Mapped[int] = Column(Integer, primary_key=True, autoincrement=True)
-    podcast_id: Mapped[int] = Column(
-        Integer, ForeignKey("podcasts.id"), nullable=False
-    )
+    podcast_id: Mapped[int] = Column(Integer, ForeignKey("podcasts.id"), nullable=False)
 
     title: Mapped[str] = Column(String(500), nullable=False)
     description: Mapped[str | None] = Column(Text, nullable=True)
@@ -128,9 +120,7 @@ class Episode(Base):
     state_updated_at: Mapped[datetime | None] = Column(DateTime, nullable=True)
     """Timestamp of the most recent state transition."""
 
-    created_at: Mapped[datetime] = Column(
-        DateTime, default=datetime.utcnow, nullable=False
-    )
+    created_at: Mapped[datetime] = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     podcast: Mapped["Podcast"] = relationship("Podcast", back_populates="episodes")
 

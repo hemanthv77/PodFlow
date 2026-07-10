@@ -232,6 +232,39 @@ Total:                 34 files, ~5000 lines
 
 ---
 
+## Stabilization (Phase 6)
+
+| Sprint | Tool | Purpose |
+|---|---|---|
+| A | `pyproject.toml` | Installable package, `podflow` CLI console script |
+| B | Alembic | Versioned schema migrations at `podflow/database/migrations/` |
+| C | Docker + docker-compose | 3 services: podflow, postgres, airflow |
+| D | Ruff, Black, MyPy, pytest-cov | All configured in `pyproject.toml`, 0 errors |
+| E | pre-commit | 9 hooks enforce lint/format/types on every commit |
+| F | GitHub Actions CI | Lint, mypy, tests on push/PR to main |
+| G | Documentation | DEPLOYMENT, CONTRIBUTING, RELEASE_PROCESS |
+
+### Quality Gates
+
+```
+ruff check    → 0 errors
+black --check → 44 files unchanged
+mypy          → 0 errors in 37 files
+pytest        → 27 passed, 0 failed
+pre-commit    → 9/9 hooks pass
+```
+
+### Database Backend
+
+```bash
+DB_BACKEND=sqlite      # default, local dev (zero config)
+DB_BACKEND=postgresql  # Docker / production
+```
+
+PostgreSQL connection configured in `.env`; `session.py` adapts automatically.
+
+---
+
 ## Future Evolution
 
 - **Transcription / Summarization**: Add services, extend state machine — zero schema changes.

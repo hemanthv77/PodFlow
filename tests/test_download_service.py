@@ -6,7 +6,7 @@ downloads and updates the database.
 """
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -68,9 +68,7 @@ class TestDownloadService:
     # Successful download
     # ----------------------------------------------------------------
 
-    def test_download_success_updates_state(
-        self, mock_repo, mock_downloader, mock_file_manager
-    ):
+    def test_download_success_updates_state(self, mock_repo, mock_downloader, mock_file_manager):
         service = DownloadService(
             downloader=mock_downloader,
             file_manager=mock_file_manager,
@@ -85,8 +83,8 @@ class TestDownloadService:
         assert stats.total_bytes == 1_000_000
         assert stats.success is True
 
-        # Verify DB was updated with state + integrity data
-        mock_repo.update_state.assert_called_once_with(
+        # Service now calls update_state 3x: QUEUED, DOWNLOADING, DOWNLOADED
+        mock_repo.update_state.assert_any_call(
             1,
             ProcessingState.DOWNLOADED,
             local_path="/tmp/downloads/audio/Test Episode.mp3",
@@ -142,18 +140,22 @@ class TestDownloadService:
         assert len(stats.errors) == 1
         assert "Episode gone" in stats.errors[0]
 
-        # Verify FAILED state was stored
-        mock_repo.update_state.assert_called_once_with(
+        # Service calls update_state for QUEUED, DOWNLOADING (before fail),
+        # then FAILED_DOWNLOAD with bypass in the except handler
+        mock_repo.update_state.assert_any_call(
             1,
             ProcessingState.FAILED_DOWNLOAD,
             error_message="Episode gone (404)",
+            _bypass_validation=True,
         )
 
     # ----------------------------------------------------------------
     # Cache hit — file already exists
     # ----------------------------------------------------------------
 
-    def test_skip_existing_file(self, mock_repo, mock_downloader, mock_file_manager, mock_db_episode, tmp_path):
+    def test_skip_existing_file(
+        self, mock_repo, mock_downloader, mock_file_manager, mock_db_episode, tmp_path
+    ):
         # Create a real file on disk so the service can compute its SHA-256
         audio_dir = tmp_path / "audio"
         audio_dir.mkdir(parents=True)
@@ -177,9 +179,16 @@ class TestDownloadService:
         # Downloader should NOT download again
         mock_downloader.download.assert_not_called()
 
-        # But it should still record the existing file's data
-        mock_repo.update_state.assert_called_once()
-        call_kwargs = mock_repo.update_state.call_args[1]
+        # Service transitions QUEUED → DOWNLOADING → DOWNLOADED for cache hits
+        mock_repo.update_state.assert_any_call(
+            1,
+            ProcessingState.QUEUED,
+        )
+        mock_repo.update_state.assert_any_call(
+            1,
+            ProcessingState.DOWNLOADING,
+        )
+        call_kwargs = mock_repo.update_state.call_args_list[-1][1]
         assert call_kwargs["local_path"] is not None
         assert call_kwargs["file_hash"] is not None
         assert call_kwargs["file_size"] is not None
@@ -191,7 +200,13 @@ class TestDownloadService:
     def test_limit_respects_batch_size(self, mock_repo, mock_downloader, mock_file_manager):
         # Return 10 episodes
         mock_repo.list_by_state.return_value = [
-            MagicMock(id=i, title=f"Ep {i}", guid=f"g-{i}", audio_url=f"http://x.com/{i}.mp3", processing_state="NEW")
+            MagicMock(
+                id=i,
+                title=f"Ep {i}",
+                guid=f"g-{i}",
+                audio_url=f"http://x.com/{i}.mp3",
+                processing_state="NEW",
+            )
             for i in range(10)
         ]
 
@@ -214,16 +229,23 @@ class TestDownloadService:
         from podflow.services.download_service import DownloadStats
 
         success = DownloadStats(
-            episodes_checked=10, episodes_downloaded=10,
-            episodes_skipped=0, episodes_failed=0,
-            total_bytes=1000, duration_seconds=5.0, errors=[]
+            episodes_checked=10,
+            episodes_downloaded=10,
+            episodes_skipped=0,
+            episodes_failed=0,
+            total_bytes=1000,
+            duration_seconds=5.0,
+            errors=[],
         )
         assert success.success is True
 
         failed = DownloadStats(
-            episodes_checked=10, episodes_downloaded=9,
-            episodes_skipped=0, episodes_failed=1,
-            total_bytes=900, duration_seconds=5.0,
+            episodes_checked=10,
+            episodes_downloaded=9,
+            episodes_skipped=0,
+            episodes_failed=1,
+            total_bytes=900,
+            duration_seconds=5.0,
             errors=["[Ep 5]: Connection error"],
         )
         assert failed.success is False

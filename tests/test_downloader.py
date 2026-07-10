@@ -8,16 +8,14 @@ Run with::
 """
 
 import hashlib
-import os
-from pathlib import Path
-from unittest.mock import MagicMock, PropertyMock, patch
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
 
-from podflow.downloader.audio import AudioDownloader, DownloadResult
-from podflow.downloader.filesystem import FileManager
 from podflow.domain.episode import Episode
+from podflow.downloader.audio import AudioDownloader
+from podflow.downloader.filesystem import FileManager
 from podflow.exceptions.exceptions import (
     AbortDownloadError,
     RetryableDownloadError,
@@ -45,7 +43,7 @@ class TestFileManager:
         ep = Episode(title='Test: "Bad" <Chars> | Episode!', guid="x")
         path = fm.audio_path(ep)
         assert ":" not in path.name, "Colon should be replaced"
-        assert '"' not in path.name, 'Double quote should be replaced'
+        assert '"' not in path.name, "Double quote should be replaced"
         assert "<" not in path.name, "Angle bracket should be replaced"
         assert "|" not in path.name, "Pipe should be replaced"
         assert path.name.endswith(".mp3")
@@ -142,7 +140,7 @@ def _mock_client_with_stream(mock_response):
     Usage::
 
         with patch("httpx.Client") as MockClient:
-            mock_client = MockClient.return_value.__enter__.return_value
+            mock_client = mock_client.return_value.__enter__.return_value
             # Make ``client.stream(url)`` return a context manager that
             # yields *mock_response*:
             ctx = mock_client.stream.return_value.__enter__.return_value
@@ -163,19 +161,22 @@ class TestAudioDownloader:
     # ----------------------------------------------------------------
 
     @staticmethod
-    def _mock_client(response_data: bytes | None = None, status_code: int = 200,
-                     side_effect: Exception | None = None):
+    def _mock_client(
+        response_data: bytes | None = None,
+        status_code: int = 200,
+        side_effect: Exception | None = None,
+    ):
         """Patch ``httpx.Client`` and return a configured mock chain.
 
         Returns ``(patcher, mock_client, mock_response)`` so tests can
         further customise the mocks before calling ``download()``.
         """
         patcher = patch("httpx.Client")
-        MockClient = patcher.start()
+        mock_client = patcher.start()
 
         # Client instance: `with httpx.Client(...) as client`
         client_instance = MagicMock()
-        MockClient.return_value.__enter__.return_value = client_instance
+        mock_client.return_value.__enter__.return_value = client_instance
 
         if side_effect:
             # When ``client.stream(url)`` should raise
@@ -258,9 +259,11 @@ class TestAudioDownloader:
         dest = tmp_path / "notfound.mp3"
 
         patcher, client_instance = self._mock_client(
-            response_data=b"", status_code=404,
+            response_data=b"",
+            status_code=404,
             side_effect=httpx.HTTPStatusError(
-                "Not Found", request=MagicMock(),
+                "Not Found",
+                request=MagicMock(),
                 response=MagicMock(status_code=404),
             ),
         )
@@ -279,16 +282,17 @@ class TestAudioDownloader:
         dest = tmp_path / "server_error.mp3"
 
         patcher = patch("httpx.Client")
-        MockClient = patcher.start()
+        mock_client = patcher.start()
 
         client_instance = MagicMock()
-        MockClient.return_value.__enter__.return_value = client_instance
+        mock_client.return_value.__enter__.return_value = client_instance
 
         # A response with 500 status — raise_for_status raises HTTPStatusError
         response_500 = MagicMock()
         response_500.status_code = 500
         response_500.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "Server Error", request=MagicMock(),
+            "Server Error",
+            request=MagicMock(),
             response=MagicMock(status_code=500),
         )
         client_instance.stream.return_value.__enter__.return_value = response_500
@@ -311,10 +315,10 @@ class TestAudioDownloader:
         content = b"recovered data"
 
         patcher = patch("httpx.Client")
-        MockClient = patcher.start()
+        mock_client = patcher.start()
 
         client_instance = MagicMock()
-        MockClient.return_value.__enter__.return_value = client_instance
+        mock_client.return_value.__enter__.return_value = client_instance
 
         # First call: response that fails during streaming
         fail_response = MagicMock()
@@ -331,6 +335,7 @@ class TestAudioDownloader:
         success_response.iter_bytes.return_value = [content]
 
         client_instance.stream.return_value.__enter__.return_value = fail_response
+
         # On second call, return the success response
         def _stream_side_effect(*a, **kw):
             if client_instance.stream.call_count >= 2:
@@ -340,6 +345,7 @@ class TestAudioDownloader:
             ctx = MagicMock()
             ctx.__enter__.return_value = fail_response
             return ctx
+
         client_instance.stream.side_effect = _stream_side_effect
 
         dl = AudioDownloader(timeout=1, max_retries=2)

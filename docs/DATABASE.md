@@ -201,12 +201,38 @@ The service layer does **not** commit or rollback — that responsibility belong
 
 ## Future Migration Strategy
 
-Currently, `init_db()` calls `Base.metadata.create_all()` which is idempotent — it creates tables only if they don't exist. For production:
+Migrations are managed by **Alembic**. The migration directory lives at
+`podflow/database/migrations/`. A baseline migration (`da9f2ed2c921`)
+captures the current V1 schema.
 
-1. **Alembic** will be introduced for versioned schema migrations.
-2. Migration scripts will live in `podflow/database/migrations/`.
-3. `init_db()` will be replaced with `alembic upgrade head`.
-4. The transition from SQLite to PostgreSQL will be a single connection string change, provided no SQLite-specific SQL is used (currently, only `check_same_thread` is SQLite-specific).
+### Commands
+
+```bash
+# Generate a new migration after model changes
+alembic revision --autogenerate -m "add_transcripts_table"
+
+# Apply all pending migrations
+alembic upgrade head
+
+# Check current state
+alembic current
+
+# Roll back one revision
+alembic downgrade -1
+```
+
+### Adding a new column or table
+
+1. Update `podflow/database/models.py`.
+2. Run `alembic revision --autogenerate -m "description"`.
+3. Review the generated migration in `migrations/versions/`.
+4. Run `alembic upgrade head`.
+
+### Production migration path
+
+- SQLite → PostgreSQL will be a connection string change in `alembic.ini`.
+- Alembic handles table creation; data migration (if needed) goes in
+  the upgrade script.
 
 ---
 

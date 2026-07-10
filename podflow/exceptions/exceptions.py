@@ -12,6 +12,7 @@ class PodFlowError(Exception):
 
 # ---- Ingestion ----
 
+
 class IngestionError(PodFlowError):
     """Raised when fetching or reading a podcast feed fails."""
 
@@ -26,6 +27,7 @@ class RSSParseError(IngestionError):
 
 # ---- Parsing ----
 
+
 class ParseError(PodFlowError):
     """Raised when episode metadata extraction or validation fails."""
 
@@ -39,6 +41,7 @@ class InvalidDataError(ParseError):
 
 
 # ---- Download ----
+
 
 class DownloadError(PodFlowError):
     """Base exception for download failures."""
@@ -61,6 +64,7 @@ class FilesystemError(PodFlowError):
 
 
 # ---- Database ----
+
 
 class DatabaseError(PodFlowError):
     """Raised when a database operation fails."""

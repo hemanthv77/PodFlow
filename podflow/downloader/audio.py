@@ -8,6 +8,7 @@ podcasts, databases, or filesystem naming conventions.
 
 from __future__ import annotations
 
+import contextlib
 import errno
 import hashlib
 import time
@@ -161,7 +162,9 @@ class AudioDownloader:
 
             except RetryableDownloadError as exc:
                 last_error = exc
-                logger.warning("Retryable error (attempt %d/%d): %s", attempt, self._max_retries, exc)
+                logger.warning(
+                    "Retryable error (attempt %d/%d): %s", attempt, self._max_retries, exc
+                )
                 self._cleanup(tmp)
 
             except (httpx.RequestError, httpx.HTTPStatusError, OSError) as exc:
@@ -169,11 +172,13 @@ class AudioDownloader:
                 categorized = self._categorize_error(exc, url)
                 if isinstance(categorized, RetryableDownloadError):
                     last_error = exc
-                    logger.warning("Retryable error (attempt %d/%d): %s", attempt, self._max_retries, exc)
+                    logger.warning(
+                        "Retryable error (attempt %d/%d): %s", attempt, self._max_retries, exc
+                    )
                     self._cleanup(tmp)
                 else:
                     self._cleanup(tmp)
-                    raise categorized
+                    raise categorized from exc
 
         elapsed = round(time.monotonic() - started_at, 2)
         msg = f"Failed to download {url} after {self._max_retries} attempts ({elapsed:.2f}s)"
@@ -191,17 +196,11 @@ class AudioDownloader:
         if isinstance(exc, httpx.HTTPStatusError):
             status = exc.response.status_code
             if status in (404, 410):
-                return SkipDownloadError(
-                    f"Episode not found at {url} (HTTP {status})"
-                )
+                return SkipDownloadError(f"Episode not found at {url} (HTTP {status})")
             if 400 <= status < 500:
-                return SkipDownloadError(
-                    f"Client error for {url} (HTTP {status})"
-                )
+                return SkipDownloadError(f"Client error for {url} (HTTP {status})")
             if 500 <= status < 600:
-                return RetryableDownloadError(
-                    f"Server error for {url} (HTTP {status})"
-                )
+                return RetryableDownloadError(f"Server error for {url} (HTTP {status})")
 
         # --- Timeouts ---
         if isinstance(exc, httpx.TimeoutException):
@@ -213,9 +212,7 @@ class AudioDownloader:
 
         # --- OS errors ---
         if isinstance(exc, PermissionError):
-            return AbortDownloadError(
-                f"Permission denied writing download: {exc}"
-            )
+            return AbortDownloadError(f"Permission denied writing download: {exc}")
 
         if isinstance(exc, OSError):
             if getattr(exc, "errno", None) == errno.ENOSPC:
@@ -227,11 +224,6 @@ class AudioDownloader:
         # --- Fallback ---
         return RetryableDownloadError(f"Unexpected error downloading {url}: {exc}")
 
-        elapsed = round(time.monotonic() - started_at, 2)
-        msg = f"Failed to download {url} after {self._max_retries} attempts ({elapsed:.2f}s)"
-        logger.error(msg)
-        raise RetryableDownloadError(msg) from last_error
-
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
@@ -241,24 +233,24 @@ class AudioDownloader:
         sha = hashlib.sha256()
         byte_count = 0
 
-        with httpx.Client(timeout=self._timeout, follow_redirects=True) as client:
-            with client.stream("GET", url) as response:
-                response.raise_for_status()
+        with (
+            httpx.Client(timeout=self._timeout, follow_redirects=True) as client,
+            client.stream("GET", url) as response,
+        ):
+            response.raise_for_status()
 
-                dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.parent.mkdir(parents=True, exist_ok=True)
 
-                with open(dest, "wb") as f:
-                    for chunk in response.iter_bytes(chunk_size=_CHUNK_SIZE):
-                        f.write(chunk)
-                        sha.update(chunk)
-                        byte_count += len(chunk)
+            with open(dest, "wb") as f:
+                for chunk in response.iter_bytes(chunk_size=_CHUNK_SIZE):
+                    f.write(chunk)
+                    sha.update(chunk)
+                    byte_count += len(chunk)
 
         return sha.hexdigest(), byte_count
 
     @staticmethod
     def _cleanup(path: Path) -> None:
         """Delete *path* if it exists (partial or temp file)."""
-        try:
+        with contextlib.suppress(OSError):
             path.unlink(missing_ok=True)
-        except OSError:
-            pass

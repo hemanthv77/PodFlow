@@ -38,22 +38,22 @@ def _build_parser() -> argparse.ArgumentParser:
     # ---- download ----
     download_parser = sub.add_parser("download", help="Download audio for new episodes")
     download_parser.add_argument(
-        "--limit", "-l",
+        "--limit",
+        "-l",
         type=int,
         default=None,
         help="Maximum number of episodes to download (default: all)",
     )
 
     # ---- pipeline ----
-    pipeline_parser = sub.add_parser(
-        "pipeline", help="Run the full pipeline: ingest + download"
-    )
+    pipeline_parser = sub.add_parser("pipeline", help="Run the full pipeline: ingest + download")
     pipeline_parser.add_argument(
         "url",
         help="RSS feed URL",
     )
     pipeline_parser.add_argument(
-        "--limit", "-l",
+        "--limit",
+        "-l",
         type=int,
         default=None,
         help="Maximum number of episodes to download (default: all)",
@@ -98,6 +98,7 @@ def main(argv: list[str] | None = None) -> int:
 # ------------------------------------------------------------------
 # Output formatters
 # ------------------------------------------------------------------
+
 
 def _print_ingestion(result) -> None:
     print(f"Podcast:     {result.podcast}")

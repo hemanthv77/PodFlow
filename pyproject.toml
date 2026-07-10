@@ -1,0 +1,91 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "podflow"
+version = "0.5.0"
+description = "Podcast ingestion and asset management pipeline"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+authors = [{ name = "PodFlow Contributors" }]
+keywords = ["podcast", "rss", "airflow", "etl", "pipeline"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Sound/Audio",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content :: News/Diary",
+]
+
+dependencies = [
+    "apache-airflow>=3.2",
+    "feedparser>=6.0",
+    "httpx>=0.28",
+    "pydantic-settings>=2.14",
+    "sqlalchemy>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0",
+    "pytest-cov>=6.0",
+    "black>=25.0",
+    "ruff>=0.11",
+    "mypy>=1.15",
+    "pre-commit>=4.0",
+]
+
+[project.scripts]
+podflow = "podflow.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["podflow*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = ["podflow/database/migrations/"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]  # line length handled by black
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "podflow.database.models"
+disable_error_code = ["assignment"]
+
+[[tool.mypy.overrides]]
+module = ["feedparser", "podflow.ingestion.*"]
+disable_error_code = ["no-any-return", "assignment"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.coverage.run]
+source = ["podflow"]
+omit = ["podflow/database/migrations/*"]
+
+[tool.coverage.report]
+exclude_also = [
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]

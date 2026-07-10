@@ -111,9 +111,7 @@ class FeedParser:
 
         guid = entry.get("id") or entry.get("guid")
         if not guid:
-            raise MissingFieldError(
-                f"Episode '{title}' is missing required field: guid"
-            )
+            raise MissingFieldError(f"Episode '{title}' is missing required field: guid")
 
         return Episode(
             title=title.strip(),
@@ -149,9 +147,7 @@ class FeedParser:
         # Fallback: any enclosure with a recognisable audio extension
         for enc in entry.get("enclosures", []):
             href = enc.get("href", "")
-            if href and any(
-                href.lower().endswith(ext) for ext in (".mp3", ".m4a", ".ogg", ".wav")
-            ):
+            if href and any(href.lower().endswith(ext) for ext in (".mp3", ".m4a", ".ogg", ".wav")):
                 return href
 
         return None
@@ -201,11 +197,7 @@ class FeedParser:
         # HH:MM:SS
         match = _DURATION_HHMMSS.match(raw)
         if match:
-            return (
-                int(match.group(1)) * 3600
-                + int(match.group(2)) * 60
-                + int(match.group(3))
-            )
+            return int(match.group(1)) * 3600 + int(match.group(2)) * 60 + int(match.group(3))
 
         # MM:SS
         match = _DURATION_MMSS.match(raw)
@@ -214,4 +206,3 @@ class FeedParser:
 
         logger.debug("Unrecognized duration format: %r", raw)
         return None
-

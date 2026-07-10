@@ -4,17 +4,20 @@ SQLAlchemy engine and session factory.
 Uses the database URL from :mod:`podflow.config.settings`.
 """
 
+from typing import Any
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from podflow.config.settings import settings
 from podflow.database.models import Base
 
-engine = create_engine(
-    settings.database_url,
-    echo=False,
-    connect_args={"check_same_thread": False},  # required for SQLite
-)
+engine_args: dict[str, Any] = {"echo": False}
+
+if settings.db_backend == "sqlite":
+    engine_args["connect_args"] = {"check_same_thread": False}
+
+engine = create_engine(settings.database_url, **engine_args)
 
 SessionLocal = sessionmaker(
     bind=engine,

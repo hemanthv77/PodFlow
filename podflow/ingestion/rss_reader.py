@@ -62,9 +62,7 @@ class RSSFeedReader:
         # feedparser sets bozo=1 when XML parsing fails
         if parsed.bozo:
             logger.error("RSS parse error for %s: %s", url, parsed.bozo_exception)
-            raise RSSParseError(
-                f"Failed to parse RSS feed at {url}: {parsed.bozo_exception}"
-            )
+            raise RSSParseError(f"Failed to parse RSS feed at {url}: {parsed.bozo_exception}")
 
         # A valid podcast feed must have a title — treat missing as a fetch failure
         feed = parsed.feed
@@ -82,4 +80,3 @@ class RSSFeedReader:
         )
 
         return parsed
-

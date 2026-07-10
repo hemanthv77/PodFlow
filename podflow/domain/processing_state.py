@@ -17,8 +17,7 @@ Usage::
 
 from __future__ import annotations
 
-from enum import Enum
-
+from enum import StrEnum
 
 # Map: in-progress state value → failure state value
 _FAILURE_TRANSITIONS: dict[str, str] = {
@@ -29,7 +28,7 @@ _FAILURE_TRANSITIONS: dict[str, str] = {
 }
 
 
-class ProcessingState(str, Enum):
+class ProcessingState(StrEnum):
     """Ordered states an episode moves through during its lifecycle.
 
     The order in this enum defines the valid linear progression.  Each
@@ -109,9 +108,7 @@ class ProcessingState(str, Enum):
         if self.is_terminal:
             return False
 
-        # Per-stage failure transitions — check the klass-level dict
-        klass = self.__class__
-        expected_failure: ProcessingState | None = None
+        # Per-stage failure transitions
         for in_progress, failed_state in _FAILURE_TRANSITIONS.items():
             if self.value == in_progress and target.value == failed_state:
                 return True
@@ -146,7 +143,7 @@ class ProcessingState(str, Enum):
         try:
             idx = ordered.index(self)
             if idx + 1 < len(ordered):
-                return ordered[idx + 1]
+                return ordered[idx + 1]  # type: ignore[return-value]
         except ValueError:
             pass
         return None

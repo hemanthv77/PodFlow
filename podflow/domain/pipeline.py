@@ -69,8 +69,4 @@ class PipelineReport:
     @property
     def success(self) -> bool:
         """``True`` when no errors occurred and nothing failed."""
-        if self.ingestion.errors:
-            return False
-        if self.download and self.download.errors:
-            return False
-        return True
+        return not (self.ingestion.errors or (self.download and self.download.errors))
