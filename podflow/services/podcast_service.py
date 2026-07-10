@@ -33,6 +33,7 @@ from podflow.database.session import SessionLocal
 from podflow.domain.episode import IngestionResult
 from podflow.ingestion.episode_parser import FeedParser
 from podflow.ingestion.rss_reader import RSSFeedReader
+from podflow.logging.events import emit
 from podflow.logging.logger import get_logger
 
 logger = get_logger(__name__)
@@ -84,8 +85,10 @@ class PodcastService:
         # ---- 1. Fetch ----
         try:
             raw_feed = self._rss_reader.fetch(rss_url)
+            emit("ingest.fetched", url=rss_url)
         except Exception as exc:
             logger.exception("Failed to fetch RSS feed: %s", rss_url)
+            emit("ingest.failed", url=rss_url, error=str(exc))
             return IngestionResult(
                 podcast="(unknown)",
                 episodes_found=0,
@@ -101,6 +104,7 @@ class PodcastService:
 
         if not episodes:
             logger.info("No parseable episodes found for '%s'.", podcast_domain.title)
+            emit("ingest.parsed", podcast=podcast_domain.title, episodes=0)
             return IngestionResult(
                 podcast=podcast_domain.title,
                 episodes_found=0,
@@ -155,6 +159,15 @@ class PodcastService:
                 new_episodes,
                 skipped,
                 elapsed,
+            )
+
+            emit(
+                "ingest.completed",
+                podcast=podcast_domain.title,
+                found=episodes_found,
+                new=new_episodes,
+                skipped=skipped,
+                elapsed=elapsed,
             )
 
             return IngestionResult(

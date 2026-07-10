@@ -108,9 +108,9 @@ class Episode(Base):
 
     # ---- Processing state machine ----
     processing_state: Mapped[str] = Column(
-        String(20), default="NEW", nullable=False, index=True
+        String(20), default="DISCOVERED", nullable=False, index=True
     )
-    """Current stage in the pipeline: NEW → DOWNLOADED → ... → COMPLETE."""
+    """Current stage in the pipeline: DISCOVERED → QUEUED → DOWNLOADING → DOWNLOADED → ..."""
 
     local_path: Mapped[str | None] = Column(String(1000), nullable=True)
     """Path to the downloaded audio file (set when state ≥ DOWNLOADED)."""

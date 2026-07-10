@@ -41,7 +41,19 @@ class InvalidDataError(ParseError):
 # ---- Download ----
 
 class DownloadError(PodFlowError):
-    """Raised when downloading an audio file fails."""
+    """Base exception for download failures."""
+
+
+class RetryableDownloadError(DownloadError):
+    """Transient error — retrying may succeed (timeout, 5xx, connection reset)."""
+
+
+class SkipDownloadError(DownloadError):
+    """Permanent error for this episode — skip it (404, 410, gone)."""
+
+
+class AbortDownloadError(DownloadError):
+    """Fatal error — abort the entire batch (disk full, permission denied)."""
 
 
 class FilesystemError(PodFlowError):

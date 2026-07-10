@@ -150,24 +150,27 @@ class EpisodeRepository:
         new_state: ProcessingState,
         *,
         local_path: str | None = None,
+        file_hash: str | None = None,
+        file_size: int | None = None,
         error_message: str | None = None,
+        _bypass_validation: bool = False,
     ) -> Episode | None:
         """Transition an episode to a new processing state.
 
         Validates the transition via :meth:`ProcessingState.transition_to`
-        and persists ``state_updated_at``.
+        unless ``_bypass_validation`` is ``True`` (used for failure paths).
 
         Args:
             episode_id: Primary key of the episode.
             new_state: Target processing state.
             local_path: Filesystem path (set on DOWNLOADED transition).
+            file_hash: SHA-256 hex digest (set on DOWNLOADED transition).
+            file_size: File size in bytes (set on DOWNLOADED transition).
             error_message: Error details (set on FAILED transition).
+            _bypass_validation: Skip the state-machine transition check.
 
         Returns:
             The updated :class:`Episode`, or ``None`` if not found.
-
-        Raises:
-            ValueError: If the state transition is invalid.
         """
         episode = self._session.get(Episode, episode_id)
         if episode is None:
@@ -175,13 +178,18 @@ class EpisodeRepository:
             return None
 
         current = ProcessingState(episode.processing_state)
-        current.transition_to(new_state)  # raises ValueError if invalid
+        if not _bypass_validation:
+            current.transition_to(new_state)  # raises ValueError if invalid
 
         episode.processing_state = new_state.value
         episode.state_updated_at = datetime.utcnow()
 
         if local_path is not None:
             episode.local_path = local_path
+        if file_hash is not None:
+            episode.file_hash = file_hash
+        if file_size is not None:
+            episode.file_size = file_size
         if error_message is not None:
             episode.error_message = error_message
 

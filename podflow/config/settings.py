@@ -51,10 +51,11 @@ class Settings(BaseSettings):
 
     @property
     def download_path(self) -> Path:
-        """Return the resolved download directory as a Path."""
-        p = Path(self.download_dir)
-        p.mkdir(parents=True, exist_ok=True)
-        return p.resolve()
+        """Return the resolved download root directory as a Path.
+
+        Directory creation is deferred to :class:`FileManager.ensure_directories`.
+        """
+        return Path(self.download_dir).resolve()
 
 
 # Singleton instance -- import this everywhere
