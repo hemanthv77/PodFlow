@@ -56,3 +56,4 @@ downloads/
 # ==========================================
 .DS_Store
 podflow.egg-info/
+.coverage
