@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "podflow"
-version = "0.5.0"
+version = "0.6.0"
 description = "Podcast ingestion and asset management pipeline"
 readme = "README.md"
 license = { text = "MIT" }
@@ -20,6 +20,8 @@ classifiers = [
 ]
 
 dependencies = [
+    "fastapi>=0.136",
+    "uvicorn>=0.34",
     "apache-airflow>=3.2",
     "feedparser>=6.0",
     "httpx>=0.28",
@@ -39,6 +41,7 @@ dev = [
 
 [project.scripts]
 podflow = "podflow.cli:main"
+podflow-api = "podflow.api.main:run"
 
 [tool.setuptools.packages.find]
 include = ["podflow*"]
@@ -54,7 +57,10 @@ exclude = ["podflow/database/migrations/"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
-ignore = ["E501"]  # line length handled by black
+ignore = [
+    "E501",  # line length handled by black
+    "B008",  # Depends() in FastAPI defaults is idiomatic
+]
 
 [tool.ruff.format]
 quote-style = "double"

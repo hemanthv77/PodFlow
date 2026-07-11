@@ -1,192 +1,202 @@
 # PodFlow Roadmap
 
-> **Document version:** 1.0 — Phase 2 completion
-> **Last updated:** 2026-07-10
+> **Document version:** 2.0 — v0.6.0 release
+> **Last updated:** 2026-07-11
 
 ## Overview
 
 PodFlow is built in phases, each adding a layer of capability. Phases are designed so that each one produces a working, testable increment — the project is never in a broken state between phases.
 
+The backend architecture is **frozen** as of v0.6.0. Future work adds capabilities (frontend, AI processing, additional content sources) atop the existing foundation rather than restructuring it.
+
 ---
 
 ## Completed Phases
 
-### Phase 1 — Project Scaffolding
+### Phase 1 — Project Scaffolding ✅
 
-**Status:** ✅ Complete
+**Tag:** — (pre-release)
 
 - Project directory structure created.
 - Apache Airflow 3.2 installed and configured (`LocalExecutor`, simple auth).
 - Python virtual environment with all dependencies.
 - `.env` configuration file with initial values.
-- `.gitignore` rules established.
 - Module stubs created for all planned packages.
 
-### Phase 2 — Foundation Layer
+### Phase 2 — Foundation Layer ✅
 
-**Status:** ✅ Complete
+**Tag:** — (pre-release)
 
 - **Configuration**: `podflow/config/settings.py` — pydantic-settings loading from `.env`.
 - **Logging**: `podflow/logging/logger.py` — structured logging with `get_logger()`.
 - **Exceptions**: `podflow/exceptions/exceptions.py` — typed hierarchy rooted at `PodFlowError`.
-- **Database models**: `podflow/database/models.py` — `Podcast` and `Episode` SQLAlchemy models with constraints and indexes.
-- **Database session**: `podflow/database/session.py` — engine, session factory, `init_db()`.
-- **Database repository**: `podflow/database/repository.py` — `PodcastRepository` and `EpisodeRepository` with CRUD operations.
-- **Domain objects**: `podflow/domain/` — `Podcast`, `Episode`, `PipelineResult`, `ProcessingState`, `SourceType`.
-- **Schema evolution**: Added `source_type`, `file_hash`, `file_size`, `etag`, `last_modified`, `is_active`, `deleted_at`, and extended podcast metadata fields.
-- **Processing state machine**: Enum with 8 states, validated transitions, terminal state enforcement.
-- **Soft delete**: `is_active` flag with `deleted_at` timestamp on episodes.
+- **Database**: SQLAlchemy ORM models (`Podcast`, `Episode`), session factory, repository layer.
+- **Domain**: Pure dataclasses — `Podcast`, `Episode`, `ProcessingState` (18-state enum), `SourceType`.
+- **Processing state machine**: Validated transitions with per-stage failure isolation.
 
-### Phase 3 — Ingestion & Pipeline (Current)
+### Phase 3 — Ingestion Engine ✅
 
-**Status:** ✅ Complete
+**Tag:** — (pre-release)
 
-- **RSS reader**: `podflow/ingestion/rss_reader.py` — fetch and parse RSS feeds via `feedparser`.
-- **Episode parser**: `podflow/ingestion/episode_parser.py` — raw RSS entries → `Episode` domain objects.
-- **Audio downloader**: `podflow/downloader/audio.py` — HTTP streaming with retry logic.
-- **File manager**: `podflow/downloader/filesystem.py` — safe filenames, path resolution.
-- **Podcast service**: `podflow/services/podcast_service.py` — end-to-end pipeline orchestration.
-- **Airflow DAG**: `podflow/airflow/podcast_pipeline.py` — scheduled every 6 hours.
-- **DAG loader**: `airflow_home/dags/podflow_dag_loader.py` — Airflow discovery entry point.
+- RSS feed reader (`podflow/ingestion/rss_reader.py`) — fetch via `feedparser`.
+- Episode parser (`podflow/ingestion/episode_parser.py`) — raw RSS → domain objects.
+- `PodcastService` — fetch → parse → persist orchestration.
 
-### Phase 4 — Documentation
+### Phase 4 — Asset Management ✅
 
-**Status:** ✅ Complete (current)
+**Tag:** — (pre-release)
 
-- Architecture document.
-- Project structure document.
-- Database schema document.
-- Domain model document.
-- Development guide.
-- Roadmap (this document).
-- Architecture decision records.
+- `FileManager` — type-specific subdirectories, safe filenames, path resolution.
+- `AudioDownloader` — HTTP streaming with retry, SHA-256 integrity, atomic writes (`.part → rename`).
+- Error categorization: `RetryableDownloadError`, `SkipDownloadError`, `AbortDownloadError`.
+- `DownloadService` — batch download with state transitions.
+
+### Phase 5 — Workflow Orchestration ✅
+
+**Tag:** `v0.5.0`
+
+- `PipelineService` — single entry point orchestrating ingest + download.
+- Airflow DAG (`podcast_pipeline`) — scheduled every 6 hours, 1 task, 0 business logic.
+- CLI (`podflow ingest/download/pipeline`) — same services as Airflow and API.
+- Integration tests — real Talk Python feed, idempotency verification.
+- **27 tests passing.**
+
+### Phase 6 — Platform API & Production Readiness ✅
+
+**Tag:** `v0.6.0`
+
+- **FastAPI application** with 12 endpoints under `/api/v1/`.
+- **Middleware stack**: CORS, Security Headers, GZip, Request ID, Correlation ID, Request Logging.
+- **Request tracing**: `X-Request-ID` and `X-Correlation-ID` on every response and log record.
+- **Security headers**: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`.
+- **RFC 7807 error contract**: `type`, `title`, `status`, `detail`, `instance`, `request_id`, `correlation_id`.
+- **API versioning**: Configurable `API_VERSION` → `/api/{version}/` prefix, no hardcoded paths.
+- **GZip compression**: Responses ≥ 1 KB compressed (configurable).
+- **Graceful shutdown**: Lifespan handler with structured logging and DB engine disposal.
+- **Packaging**: `pyproject.toml`, `pip install -e .`, `podflow-api` console script.
+- **Alembic migrations**: Versioned schema management.
+- **Docker**: `docker-compose.yml` with podflow, postgres, airflow services.
+- **Code quality**: Ruff, Black, MyPy (0 errors), pre-commit (9 hooks).
+- **CI**: GitHub Actions — lint, mypy, tests on push/PR.
+- **Documentation**: 12 docs including ARCHITECTURE_V1, API_REFERENCE, DEPLOYMENT, DIAGRAMS.
+- **74 tests passing** (48 unit/integration + 26 production readiness).
 
 ---
 
 ## Future Phases
 
-### Phase 5 — Testing
+> **Architecture note:** All future phases build on the frozen v1 foundation. No restructuring of the backend architecture is planned.
 
-**Status:** 🔜 Planned
+### Phase 7 — Authentication & Rate Limiting
 
-- Unit tests for domain objects (`Episode`, `Podcast`, `ProcessingState`, `SourceType`).
-- Unit tests for `EpisodeParser` (duration parsing, audio URL extraction, date parsing).
-- Unit tests for `FileManager` (filename sanitization, extension detection).
-- Integration tests for `PodcastRepository` and `EpisodeRepository` (in-memory SQLite).
-- Integration tests for `PodcastService.run()` with mocked HTTP.
-- Airflow DAG structure tests.
+**Status:** 🔜 Planned — recommended before public exposure
 
-### Phase 6 — End-to-End Pipeline Run
+- API key or JWT middleware for mutation endpoints (`POST /ingestions`, `/downloads`, `/pipeline-executions`).
+- Role-based access: read-only vs. admin.
+- Rate limiting per key/IP for ingestion and download endpoints.
 
-**Status:** 🔜 Planned
-
-- First real pipeline run against Marketplace RSS feed.
-- Verify episode metadata is correctly parsed and stored.
-- Verify audio files download successfully.
-- Verify idempotency (second run inserts zero new episodes).
-- Verify soft-delete filtering.
-- Verify state transitions (NEW → DOWNLOADED → FAILED).
-
-### Phase 7 — YouTube Ingestion
+### Phase 8 — YouTube Ingestion
 
 **Status:** 📋 Backlog
 
 - `podflow/ingestion/youtube_reader.py` — YouTube Data API or `yt-dlp` integration.
-- Youtube channel → `Podcast` domain object with `source_type=YOUTUBE`.
-- Youtube video → `Episode` domain objects with audio URL extraction.
-- Zero changes to `PodcastService` or database layer (same domain objects).
+- YouTube channel → `Podcast` domain object with `source_type=YOUTUBE`.
+- YouTube video → `Episode` domain objects with audio URL extraction.
+- Zero changes to `PodcastService` or database layer — same domain objects, same pipeline.
 
-### Phase 8 — Multi-Stage Airflow DAG
-
-**Status:** 📋 Backlog
-
-- Split single-task DAG into separate Airflow tasks per processing stage.
-- Download task: targets `NEW` episodes.
-- (Future) Transcribe task: targets `DOWNLOADED` episodes.
-- (Future) Summarize task: targets `TRANSCRIBED` episodes.
-- Each task independently retryable at Airflow level.
-
-### Phase 9 — Transcription
+### Phase 9 — AI Processing Pipeline
 
 **Status:** 📋 Backlog
 
-- Speech-to-text integration (Whisper, Deepgram, or cloud API).
-- `podflow/services/transcription_service.py`.
-- Episode transitions: `DOWNLOADED → TRANSCRIBED` or `DOWNLOADED → FAILED`.
+- **Transcription**: Speech-to-text (Whisper, Deepgram, or cloud API). New `TranscriptionService`.
+- **Summarization**: LLM-based episode summaries (OpenAI, Anthropic, or local model). New `SummarizationService`.
+- **Embedding**: Text embeddings for semantic search. New `EmbeddingService`.
+- State transitions: `DOWNLOADED → TRANSCRIBED → SUMMARIZED → EMBEDDED → COMPLETE`.
+- Each stage independently retryable through the existing state machine.
 
-### Phase 10 — AI Summarization
-
-**Status:** 📋 Backlog
-
-- LLM-based episode summarization (OpenAI, Anthropic, or local model).
-- `podflow/services/summarization_service.py`.
-- Episode transitions: `TRANSCRIBED → SUMMARIZED`.
-
-### Phase 11 — Semantic Search
+### Phase 10 — Semantic Search API
 
 **Status:** 📋 Backlog
 
-- Text embedding generation for episode transcripts and summaries.
-- Vector database or SQLite extension for similarity search.
-- Episode transitions: `SUMMARIZED → EMBEDDED → INDEXED → COMPLETE`.
+- Vector database integration (pgvector, Chroma, or SQLite extension).
+- `GET /api/v1/search?q=...` endpoint — search across transcripts and summaries.
+- Relevance-ranked results with episode context.
 
-### Phase 12 — FastAPI Backend
-
-**Status:** 📋 Backlog
-
-- REST API for querying podcasts, episodes, and processing states.
-- Endpoints for triggering pipeline runs, retrying failed episodes.
-- Imports `PodcastService` and repositories directly — no Airflow dependency.
-
-### Phase 13 — Web Frontend
+### Phase 11 — Web Frontend
 
 **Status:** 📋 Backlog
 
 - UI for browsing podcasts and episodes.
 - Search interface.
 - Pipeline health dashboard.
-- User authentication.
+- User authentication UI.
+- Framework TBD (React, htmx, or streamlit).
 
-### Phase 14 — Productionization
+### Phase 12 — Multi-Stage Airflow DAG
 
 **Status:** 📋 Backlog
 
-- PostgreSQL migration (replace SQLite).
-- Alembic for schema migrations.
-- Docker containerization.
-- Cloud deployment (AWS/GCP/Azure).
-- Monitoring and alerting.
-- CI/CD pipeline.
+- Split single-task DAG into separate Airflow tasks per processing stage.
+- Each task independently retryable at Airflow level.
+- Task dependencies: ingest → download → transcribe → summarize → embed.
+
+### Phase 13 — Cloud Deployment
+
+**Status:** 📋 Backlog
+
+- Production PostgreSQL (RDS/Cloud SQL).
+- Container orchestration (ECS/GKE/Cloud Run).
+- Secret management (Vault/Secrets Manager).
+- Prometheus metrics + Grafana dashboards.
+- Centralized logging (ELK/Loki).
+- CD pipeline.
+
+---
+
+## Architecture Freeze
+
+As of v0.6.0, the backend architecture is frozen:
+
+```
+FastAPI → Middleware → Routers → DTOs → Services → Repositories → Database
+```
+
+- **No business logic** will be added to presentation layers (API, CLI, Airflow).
+- **No SQLAlchemy models** will be exposed through the API.
+- **Services remain the single source of truth** for business capabilities.
+- **Domain objects remain framework-free.**
+
+Changes that *are* allowed:
+- New services for new capabilities (e.g., `TranscriptionService`).
+- New API endpoints that delegate to services.
+- New domain objects for new entity types.
+- Backward-compatible schema additions.
 
 ---
 
 ## Technical Debt
 
-| Item | Severity | Plan |
+| Item | Severity | Status |
 |---|---|---|
-| Stub files (`rss.py`, `parser.py`, `youtube.py`) | Low | Remove when YouTube ingestion is implemented; already superseded by `rss_reader.py` and `episode_parser.py` |
-| `src/` directory (empty) | Low | Remove in next cleanup pass |
-| `requirements.txt` uses `pip freeze` (all deps pinned) | Medium | Migrate to `pyproject.toml` with `[project.dependencies]` |
-| No test infrastructure | Medium | Phase 5 |
-| No database migration framework | Low | Alembic when PostgreSQL is needed |
-| `datetime.utcnow()` is deprecated in Python 3.13+ | Low | Migrate to `datetime.now(datetime.UTC)` |
+| `src/` directory (empty) | Low | Remove in next cleanup |
+| `requirements.txt` uses `pip freeze` | Low | Suppressed by `pyproject.toml` |
+| `podflow/ingestion/rss.py`, `parser.py`, `youtube.py` (stubs) | Low | Replace when YouTube ingestion is implemented |
+| No authentication on mutation endpoints | High | Phase 7 |
+| No rate limiting | Medium | Phase 7 |
+| Manual `/metrics` endpoint | Low | Replace with prometheus-fastapi-instrumentator |
+| B008 ruff warnings (Depends in defaults) | Low | Standard FastAPI pattern — suppress in config |
 
 ---
 
 ## Milestones
 
-| Milestone | Phase | Target |
-|---|---|---|
-| Foundation layer built and verified | 2 | ✅ Done |
-| Pipeline code written and unit-verified | 3 | ✅ Done |
-| Documentation complete | 4 | ✅ In progress |
-| Test suite passing | 5 | Next |
-| First real pipeline run | 6 | After testing |
-| Multi-source ingestion (RSS + YouTube) | 7 | After E2E run |
-| Transcription working | 9 | After multi-source |
-
----
-
-## Future Evolution
-
-This roadmap is a living document. Phases may be reordered based on priorities — for example, the FastAPI backend could be pulled forward if there's a need to query the database before transcription is implemented. The architecture is designed so that layers can be built in any order without blocking each other.
+| Milestone | Tag | Date | Tests |
+|---|---|---|---|
+| Foundation layer built | — | 2026-07-09 | — |
+| Ingestion engine complete | — | 2026-07-09 | — |
+| Asset management complete | — | 2026-07-10 | — |
+| Workflow orchestration | `v0.5.0` | 2026-07-10 | 27 |
+| Platform API & Production Readiness | `v0.6.0` | 2026-07-11 | 74 |
+| Authentication & Rate Limiting | TBD | TBD | — |
+| YouTube ingestion | TBD | TBD | — |
+| AI processing pipeline | TBD | TBD | — |

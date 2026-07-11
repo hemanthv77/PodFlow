@@ -21,6 +21,18 @@ class Settings(BaseSettings):
     # ---- Application ----
     app_name: str = "PodFlow"
 
+    # ---- API ----
+    api_host: str = "0.0.0.0"
+    api_port: int = 8000
+    api_version: str = "v1"
+    """API version segment used in URL prefix (e.g. ``/api/v1``)."""
+    cors_origins: str = "*"
+    """Comma-separated allowed origins. ``"*"`` means all origins in dev."""
+    enable_https: bool = False
+    """When True, ``Strict-Transport-Security`` header is added to responses."""
+    gzip_min_size: int = 1024
+    """Minimum response size in bytes for GZip compression."""
+
     # ---- Database ----
     db_backend: str = "sqlite"
     """``"sqlite"`` (dev) or ``"postgresql"`` (prod)."""
@@ -53,6 +65,11 @@ class Settings(BaseSettings):
     # ---- RSS Fetch ----
     rss_fetch_timeout: int = 30
     """HTTP timeout (seconds) for RSS feed requests."""
+
+    @property
+    def api_prefix(self) -> str:
+        """Return the API URL prefix (e.g. ``/api/v1``)."""
+        return f"/api/{self.api_version}"
 
     @property
     def database_url(self) -> str:

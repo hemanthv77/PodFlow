@@ -1,11 +1,11 @@
 # PodFlow Architecture — Version 1
 
-> **Frozen:** 2026-07-10 — Phase 5 completion
-> **Status:** Production-ready foundation. 553 episodes ingested, 2 downloaded, 25 tests passing.
+> **Frozen:** 2026-07-11 — Phase 6 completion (v0.6.0)
+> **Status:** Production-ready platform. 74 tests passing. Architecture is frozen — future work adds capabilities atop this foundation.
 
 ## Overview
 
-PodFlow v1 is a podcast ingestion and asset management pipeline. It discovers episodes from RSS feeds, persists metadata to SQLite, downloads audio with integrity checks, and tracks every episode through an 18-state observable processing machine. Apache Airflow, a CLI, and future FastAPI all share the same service layer.
+PodFlow v1 is a podcast ingestion and asset management platform. It discovers episodes from RSS feeds, persists metadata to SQLite/PostgreSQL, downloads audio with integrity checks, and tracks every episode through an 18-state observable processing machine. The FastAPI REST API, CLI, and Apache Airflow all share the same service layer — zero business logic in presentation layers.
 
 ---
 
@@ -13,14 +13,19 @@ PodFlow v1 is a podcast ingestion and asset management pipeline. It discovers ep
 
 | Capability | Service | Entry Point |
 |---|---|---|
-| Ingest RSS feed | `PodcastService` | `podflow ingest <url>` |
-| Download audio | `DownloadService` | `podflow download --limit N` |
-| Full pipeline | `PipelineService` | `podflow pipeline <url>` |
+| Ingest RSS feed | `PodcastService` | `POST /api/v1/ingestions`, `podflow ingest <url>` |
+| Download audio | `DownloadService` | `POST /api/v1/downloads`, `podflow download --limit N` |
+| Full pipeline | `PipelineService` | `POST /api/v1/pipeline-executions`, `podflow pipeline <url>` |
+| Query podcasts/episodes | Query services | `GET /api/v1/podcasts`, `GET /api/v1/episodes` |
+| Platform metrics | `MetricsService` | `GET /api/v1/metrics`, `GET /api/v1/info` |
 | Orchestrate via Airflow | `podcast_pipeline` DAG | Every 6 hours |
-| Structured events | `logging/events.py` | All services emit to logger |
+| Structured events | `logging/logger.py` | All services emit to logger |
 | Integrity verification | SHA-256 + file size | Stored per episode |
 | Error categorization | Retryable / Skip / Abort | `AudioDownloader._categorize_error()` |
 | Atomic writes | `.part` → rename | `AudioDownloader` |
+| Request tracing | `X-Request-ID`, `X-Correlation-ID` | Every API response |
+| Security headers | 4 baseline + conditional HSTS | Every API response |
+| RFC 7807 errors | type, title, status, detail, instance | All error responses |
 
 ---
 
@@ -272,3 +277,79 @@ PostgreSQL connection configured in `.env`; `session.py` adapts automatically.
 - **FastAPI backend**: Import `PipelineService` directly — no Airflow dependency.
 - **PostgreSQL**: Swap connection string, add Alembic — repository layer unchanged.
 - **Asset table**: Evolve `local_path`/`file_hash`/`file_size` into a separate `assets` table when transcript/thumbnail assets arrive.
+
+---
+
+## FastAPI Platform (Phase 6)
+
+The PodFlow API exposes the service layer via RESTful HTTP endpoints under
+`/api/v1/`.  It is a *presentation layer only* — all business logic remains
+in the service layer.
+
+### Middleware Stack (order matters)
+
+| # | Middleware | Purpose |
+|---|---|---|
+| 1 | CORS | Cross-origin access control |
+| 2 | Security Headers | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` |
+| 3 | GZip | Compress responses ≥ 1 KB (configurable) |
+| 4 | Request ID | Generate `X-Request-ID` UUID per request |
+| 5 | Correlation ID | Accept/propagate `X-Correlation-ID` for distributed tracing |
+| 6 | Request Logging | Structured log: method, path, status, duration, client IP |
+
+### API Versioning
+
+The API version is configurable via `API_VERSION` (default `v1`).
+All versioned routes live under `/api/{API_VERSION}/`.  Routers use
+`settings.api_prefix` rather than hardcoded paths.
+
+### Request Tracing
+
+Every request receives a unique `X-Request-ID` (UUID v4).  Clients may
+supply `X-Correlation-ID` to link requests across services.  Both IDs
+appear in:
+
+- Response headers (`X-Request-ID`, `X-Correlation-ID`)
+- Structured log records (`rid=...`, `cid=...`)
+- Error response bodies (`request_id`, `correlation_id` fields)
+
+### Error Contract (RFC 7807)
+
+All error responses follow a consistent structure:
+
+```json
+{
+  "type": "https://errors.podflow.dev/not-found",
+  "title": "Not Found",
+  "status": 404,
+  "detail": "Podcast with id=999 was not found.",
+  "instance": "/api/v1/podcasts/999",
+  "request_id": "f47ac10b-...",
+  "correlation_id": "a1b2c3d4-..."
+}
+```
+
+Exception handlers cover `PodFlowError`, unhandled `Exception`, 404, and 405.
+Validation errors (422) are handled by FastAPI's built-in logic.
+
+### API Endpoints
+
+| Method | Path | Tag | Purpose |
+|---|---|---|---|
+| `POST` | `/api/v1/ingestions` | Ingestions | Ingest RSS feed |
+| `POST` | `/api/v1/downloads` | Downloads | Download episode audio |
+| `POST` | `/api/v1/pipeline-executions` | Pipeline Executions | Full pipeline run |
+| `GET`  | `/api/v1/podcasts` | Podcasts | List podcasts (paginated) |
+| `GET`  | `/api/v1/podcasts/{id}` | Podcasts | Get single podcast |
+| `GET`  | `/api/v1/episodes` | Episodes | List episodes (filtered, sorted) |
+| `GET`  | `/api/v1/episodes/{id}` | Episodes | Get single episode |
+| `GET`  | `/api/v1/metrics` | Platform | Operational metrics |
+| `GET`  | `/api/v1/info` | Platform | Application identity |
+| `GET`  | `/health` | — | Liveness probe |
+| `GET`  | `/ready` | — | Readiness probe |
+| `GET`  | `/version` | — | Version + git SHA |
+
+### Graceful Shutdown
+
+The `lifespan` handler logs structured shutdown messages, drains active
+requests, and disposes of the SQLAlchemy engine cleanly.
