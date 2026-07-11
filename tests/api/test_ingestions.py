@@ -1,6 +1,9 @@
 """API integration tests for ingestions."""
 
+import pytest
 
+
+@pytest.mark.slow
 class TestIngestions:
     def test_valid_request_returns_201(self, client, valid_rss_url):
         r = client.post("/api/v1/ingestions", json={"rss_url": valid_rss_url})

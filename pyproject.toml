@@ -84,6 +84,9 @@ disable_error_code = ["no-any-return", "assignment"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "slow: tests that hit real network endpoints (excluded from CI fast suite)",
+]
 
 [tool.coverage.run]
 source = ["podflow"]

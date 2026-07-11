@@ -1,6 +1,9 @@
 """API integration tests for pipeline executions."""
 
+import pytest
 
+
+@pytest.mark.slow
 class TestPipelineExecutions:
     def test_valid_request_returns_202(self, client, valid_rss_url):
         r = client.post(

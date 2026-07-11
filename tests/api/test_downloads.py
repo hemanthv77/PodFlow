@@ -1,6 +1,9 @@
 """API integration tests for downloads."""
 
+import pytest
 
+
+@pytest.mark.slow
 class TestDownloads:
     def test_valid_request_returns_202(self, client):
         r = client.post("/api/v1/downloads", json={"limit": 1})

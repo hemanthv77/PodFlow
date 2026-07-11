@@ -37,4 +37,4 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - run: pip install ".[dev]"
-      - run: pytest tests/ -v --tb=short --cov=podflow --cov-report=term-missing
+      - run: pytest tests/ -v --tb=short --cov=podflow --cov-report=term-missing -m "not slow"
